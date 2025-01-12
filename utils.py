@@ -1,15 +1,177 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from torch.autograd.gradcheck import zero_gradients
+# from torch.autograd.gradcheck import zero_gradients
 import torchvision
 import torchvision.transforms as transforms
 import torch_dct
 import numpy as np
 import copy
-
+from typing import Dict, List
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+import collections
+def zero_gradients(x):
+    if isinstance(x, torch.Tensor):
+        if x.grad is not None:
+            x.grad.detach_()
+            x.grad.zero_()
+    elif isinstance(x, collections.abc.Iterable):
+        for elem in x:
+            zero_gradients(elem)
+
+
+class CenterLoss(nn.Module):
+    """
+    https://github.com/jxgu1016/MNIST_center_loss_pytorch
+    """
+    def __init__(self, num_classes, feat_dim, size_average=True):
+        """
+        Parameters
+        ----------
+            num_classes: int
+                number of classes
+            feat_dim: int
+                feature's dimension
+            size_average: bool
+                author mentioned use of this parameter in github page. no use for us.
+        """
+        super().__init__()
+        self.num_classes = num_classes 
+        self.feat_dim = feat_dim
+        self.centers = nn.Parameter(torch.randn(num_classes, feat_dim))
+        # self.centers = nn.Parameter(torch.zeros(num_classes, feat_dim))
+        self.centerlossfunc = CenterlossFunc.apply
+        self.size_average = size_average
+
+        self.num_classes = num_classes
+
+    def forward(self, features, labels, grad=True) -> Dict[str, torch.Tensor]:
+        """
+        m = batch_size
+        label - [m, ]
+        feat - [m, dim] - in case of mnist toy example: [m, 2]
+        """
+        batch_size = features.size(0)
+        features = features.view(batch_size, -1)
+        # To check the dim of centers and features
+        if features.size(1) != self.feat_dim:
+            raise ValueError(
+                "Center's dim: {0} should be equal to input feature's \
+                            dim: {1}".format(
+                    self.feat_dim, features.size(1)
+                )
+            )
+
+        batch_size_tensor = features.new_empty(1).fill_(
+            batch_size if self.size_average else 1
+        )
+
+        if grad:
+            loss = self.centerlossfunc(
+                features, labels, self.centers, batch_size_tensor
+            )
+        else:
+            # Stops gradients for centers...
+            loss = self.centerlossfunc(
+                features, labels, self.centers.clone().detach(), batch_size_tensor
+            )
+        return loss
+
+from torch.autograd.function import Function
+
+class CenterlossFunc(Function):
+    @staticmethod
+    def forward(ctx, feature, label, centers, batch_size):
+        ctx.save_for_backward(feature, label, centers, batch_size)
+        centers_batch = centers.index_select(0, label.long())  # [m, feat_dim]
+        return (feature - centers_batch).pow(2).sum() / 2.0 / batch_size
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        feature, label, centers, batch_size = ctx.saved_tensors
+        centers_batch = centers.index_select(0, label.long())  # [m, feat_dim]
+
+        diff = centers_batch - feature  # c_yi - x_i
+        # init every iteration
+        counts = centers.new_ones(centers.size(0))  # [c, ] of ones
+        ones = centers.new_ones(label.size(0))  # [m, ] of ones
+        grad_centers = centers.new_zeros(centers.size())  # [c, feat_dim] of zeros
+
+        # 1-D case:
+        # grad_centers[label[i]] += ones[i]
+        counts = counts.scatter_add_(0, label.long(), ones)
+
+        grad_centers.scatter_add_(
+            0, label.unsqueeze(1).expand(feature.size()).long(), diff
+        )  # [c, feat_dim]
+
+        grad_centers = grad_centers / counts.view(-1, 1)
+
+        return -grad_output * diff / batch_size, None, grad_centers / batch_size, None
+
+
+def train_cl(model, device, trans, trainloader, testloader, epochs, opt, loss_fun, 
+             lr_schedule, save_train_dir, center_lr = 0.5, alpha = 0.1):
+    cl = CenterLoss(10, model.fd).to(device)
+    optimizer4center = torch.optim.SGD(cl.parameters(), lr=center_lr)
+    
+    # lr_schedule = lambda t: np.interp([t], [0, epochs * 2 // 5, epochs], [0, max_lr, 0])[0]
+    # loss_fun = nn.CrossEntropyLoss()
+
+    print('Starting training...')
+    print()
+
+    for epoch in range(epochs):
+        print('Epoch', epoch)
+        train_loss_sum = 0
+        train_cl_loss_sum = 0
+        train_acc_sum = 0
+        train_n = 0
+
+        model.train()
+
+        for batch_idx, (inputs, targets) in enumerate(trainloader):
+            inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
+
+            lr = lr_schedule(epoch + (batch_idx + 1) / len(trainloader))
+            opt.param_groups[0].update(lr=lr)
+
+            feats, output = model(trans(inputs))
+            cl_loss = cl(feats, targets)
+            loss = loss_fun(output, targets) + float(alpha) * cl_loss
+
+            opt.zero_grad()
+            optimizer4center.zero_grad()
+            loss.backward()
+
+            nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            optimizer4center.step()
+            opt.step()
+
+            train_loss_sum += loss.item() * targets.size(0)
+            train_cl_loss_sum += cl_loss.item() * targets.size(0)
+            train_acc_sum += (output.max(1)[1] == targets).sum().item()
+            train_n += targets.size(0)
+
+            if batch_idx % 100 == 0:
+                print('Batch idx: %d(%d)\tTrain Acc: %.3f%%\tTrain Loss: %.3f' %
+                      (batch_idx, epoch, 100. * train_acc_sum / train_n, train_loss_sum / train_n))
+
+        print('\nTrain Summary\tEpoch: %d | Train Acc: %.3f%% | Train Loss: %.3f | Train CLLoss: %.3f' %
+              (epoch, 100. * train_acc_sum / train_n, train_loss_sum / train_n, train_cl_loss_sum/train_n))
+
+        test_acc, test_loss = test(model, trans, testloader)
+        print('Test  Summary\tEpoch: %d | Test Acc: %.3f%% | Test Loss: %.3f\n' % (epoch, test_acc, test_loss))
+
+    try:
+        state_dict = model.module.state_dict()
+    except AttributeError:
+        state_dict = model.state_dict()
+
+    torch.save(state_dict, save_train_dir + 'model.t7')
+
+    return model
 
 def train(model, trans, trainloader, testloader, epochs, opt, loss_fun, lr_schedule, save_train_dir):
 
@@ -33,7 +195,7 @@ def train(model, trans, trainloader, testloader, epochs, opt, loss_fun, lr_sched
             lr = lr_schedule(epoch + (batch_idx + 1) / len(trainloader))
             opt.param_groups[0].update(lr=lr)
 
-            output = model(trans(inputs))
+            feats, output = model(trans(inputs))
             loss = loss_fun(output, targets)
 
             opt.zero_grad()
@@ -77,7 +239,7 @@ def test(model, trans, testloader):
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
-            output = model(trans(inputs))
+            feats, output = model(trans(inputs))
             loss = loss_fun(output, targets)
 
             test_loss_sum += loss.item() * targets.size(0)
@@ -94,7 +256,8 @@ def subspace_deepfool(im, model, trans, num_classes=10, overshoot=0.02, max_iter
     image = copy.deepcopy(im)
     input_shape = image.size()
 
-    f_image = model(trans(Variable(image, requires_grad=True))).view((-1,))
+    feats, f_image = model(trans(Variable(image, requires_grad=True)))
+    f_image = f_image.view((-1,))
     I = f_image.argsort(descending=True)
     I = I[0:num_classes]
     label_orig = I[0]
@@ -109,7 +272,7 @@ def subspace_deepfool(im, model, trans, num_classes=10, overshoot=0.02, max_iter
     while label_pert == label_orig and loop_i < max_iter:
 
         x = Variable(pert_image, requires_grad=True)
-        fs = model(trans(x))
+        feats, fs = model(trans(x))
 
         pert = torch.Tensor([np.inf])[0].to(device)
         w = torch.zeros(input_shape).to(device)
@@ -143,7 +306,8 @@ def subspace_deepfool(im, model, trans, num_classes=10, overshoot=0.02, max_iter
 
         pert_image = pert_image + r_i
 
-        label_pert = torch.argmax(model(trans(Variable(image + (1 + overshoot) * r, requires_grad=False))).data).item()
+        feats, ooout = model(trans(Variable(image + (1 + overshoot) * r, requires_grad=False)))
+        label_pert = torch.argmax(ooout.data).item()
 
         loop_i += 1
 
@@ -318,3 +482,4 @@ def get_processed_dataset_loaders(proc_fun, dataset, dataset_dir, batch_size=128
         raise NotImplementedError
 
     return trainloader, testloader, trainset, testset, mean, std, proc_mean, proc_std
+
