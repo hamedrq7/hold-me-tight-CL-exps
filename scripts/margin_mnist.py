@@ -31,9 +31,9 @@ np.random.seed(seed)
 random.seed(seed)
 
 TREE_ROOT = ''
-METHOD = 'CL' # 'CL'
+METHOD = 'CE' # 'CL'
 center_lr = 0.5
-alpha = 0.1
+alpha = 0.01
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -43,8 +43,8 @@ PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generate
 BATCH_SIZE = 128
 
 # Load a model
-model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist package for other network options
-# model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside the model_class.mnist package for other network options
+# model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist package for other network options
+model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside the model_class.mnist package for other network options
 # model = ResNet18()
 
 #############################
@@ -53,8 +53,11 @@ model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist pac
 
 # Specify the path of the dataset. For MNIST and CIFAR-10 the train and validation paths can be the same.
 # For ImageNet, please specify to proper train and validation paths.
-DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
-               'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
+# DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
+#                'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
+#                }
+DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST'),
+               'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST')
                }
 os.makedirs(DATASET_DIR['train'], exist_ok=True)
 os.makedirs(DATASET_DIR['val'], exist_ok=True)
@@ -86,7 +89,7 @@ if not PRETRAINED:
 
     ### TRADES setting
     TRADES_SETTING=True
-    EPOCHS = 25
+    EPOCHS = 100
     MAX_LR = 0.01
     WEIGHT_DECAY = 0.0
     MOMENTUM = 0.9
@@ -101,7 +104,7 @@ if not PRETRAINED:
         SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{DATASET}/{model.__class__.__name__}-tradesSetting_{TRADES_SETTING}/{METHOD}/'
         os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
     elif METHOD == 'CL': 
-        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{DATASET}/{model.__class__.__name__}-tradesSetting_{TRADES_SETTING}/{METHOD}/-center_lr-{center_lr} alpha-{alpha}/'
+        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{DATASET}/{model.__class__.__name__}-tradesSetting_{TRADES_SETTING}/{METHOD}/center_lr-{center_lr} alpha-{alpha} epochs-{EPOCHS}/'
         os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
     
     t0 = time.time()
