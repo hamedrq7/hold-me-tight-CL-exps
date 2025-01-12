@@ -33,13 +33,13 @@ random.seed(seed)
 TREE_ROOT = ''
 METHOD = 'CL' # 'CL'
 center_lr = 0.5
-alpha = 0.01
+alpha = 0.1
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'MNIST'
 PRETRAINED = False
-PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet/model.t7'
+PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet-center_lr-0.5 alpha-0.1/model.t7'
 BATCH_SIZE = 128
 
 # Load a model
@@ -75,20 +75,33 @@ if PRETRAINED:
 # If not pretrained, then train it
 if not PRETRAINED:
 
-    EPOCHS = 30
-    MAX_LR = 0.21
-    MOMENTUM = 0.9
-    WEIGHT_DECAY = 5e-4
+    ### Original paper HyperParams
+    # TRADES_SETTING=False
+    # EPOCHS = 30
+    # MAX_LR = 0.21
+    # MOMENTUM = 0.9
+    # WEIGHT_DECAY = 5e-4
+    # opt = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+    # lr_schedule = lambda t: np.interp([t], [0, EPOCHS * 2 // 5, EPOCHS], [0, MAX_LR, 0])[0]  # Triangular (cyclic) learning rate schedule
 
+    ### TRADES setting
+    TRADES_SETTING=True
+    EPOCHS = 25
+    MAX_LR = 0.01
+    WEIGHT_DECAY = 0.0
+    MOMENTUM = 0.9
+    gamma = 0.1
+    milestones = [55, 75, 90]
+    lr_schedule = lambda t: MAX_LR * (gamma ** sum([int(t) >= milestone for milestone in milestones]))
     opt = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+
     loss_fun = nn.CrossEntropyLoss()
-    lr_schedule = lambda t: np.interp([t], [0, EPOCHS * 2 // 5, EPOCHS], [0, MAX_LR, 0])[0]  # Triangular (cyclic) learning rate schedule
 
     if METHOD == 'CE': 
-        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{METHOD}/{DATASET}/{model.__class__.__name__}/'
+        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{DATASET}/{model.__class__.__name__}-tradesSetting_{TRADES_SETTING}/{METHOD}/'
         os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
     elif METHOD == 'CL': 
-        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{METHOD}/{DATASET}/{model.__class__.__name__}-center_lr-{center_lr} alpha-{alpha}/'
+        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{DATASET}/{model.__class__.__name__}-tradesSetting_{TRADES_SETTING}/{METHOD}/-center_lr-{center_lr} alpha-{alpha}/'
         os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
     
     t0 = time.time()

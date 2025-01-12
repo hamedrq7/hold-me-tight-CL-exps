@@ -88,7 +88,7 @@ if not PRETRAINED:
     loss_fun = nn.CrossEntropyLoss()
     lr_schedule = lambda t: np.interp([t], [0, EPOCHS * 2 // 5, EPOCHS], [0, MAX_LR, 0])[0]  # Triangular (cyclic) learning rate schedule
 
-    SAVE_TRAIN_DIR = os.path.join(TREE_ROOT, 'Models/Generated/%s_flipped/%s/' % (DATASET, model.__class__.__name__))
+    SAVE_TRAIN_DIR = os.path.join(TREE_ROOT, 'Models/Generated/%s/%s_flipped/%s/' % (METHOD, DATASET, model.__class__.__name__))
     os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
 
     t0 = time.time()
