@@ -33,12 +33,12 @@ random.seed(seed)
 TREE_ROOT = ''
 METHOD = 'CL' # 'CL'
 center_lr = 0.5
-alpha = 0.1
+alpha = 0.01
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'MNIST'
-PRETRAINED = True
+PRETRAINED = False
 PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet/model.t7'
 BATCH_SIZE = 128
 
@@ -84,9 +84,13 @@ if not PRETRAINED:
     loss_fun = nn.CrossEntropyLoss()
     lr_schedule = lambda t: np.interp([t], [0, EPOCHS * 2 // 5, EPOCHS], [0, MAX_LR, 0])[0]  # Triangular (cyclic) learning rate schedule
 
-    SAVE_TRAIN_DIR = os.path.join(TREE_ROOT, 'Models/Generated/%s/%s/%s/' % (METHOD, DATASET, model.__class__.__name__))
-    os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
-
+    if METHOD == 'CE': 
+        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{METHOD}/{DATASET}/{model.__class__.__name__}/'
+        os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
+    elif METHOD == 'CL': 
+        SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{METHOD}/{DATASET}/{model.__class__.__name__}-center_lr-{center_lr} alpha-{alpha}/'
+        os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
+    
     t0 = time.time()
     model = model.to(DEVICE)
     from torchinfo import summary
