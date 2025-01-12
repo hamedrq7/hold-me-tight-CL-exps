@@ -34,7 +34,7 @@ np.random.seed(seed)
 random.seed(seed)
 
 TREE_ROOT = ''
-METHOD = 'CE' # 'CL'
+METHOD = 'CL' # 'CL'
 center_lr = 0.5
 alpha = 0.1
 
