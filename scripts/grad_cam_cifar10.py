@@ -37,8 +37,9 @@ alpha = 0.01
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'CIFAR10'
-PRETRAINED = False
-PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet-center_lr-0.5 alpha-0.1/model.t7'
+PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/model.t7'
+# PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/model.t7'
+
 BATCH_SIZE = 128
 RESULTS_DIR = os.path.dirname(PRETRAINED_PATH)
 
@@ -58,8 +59,8 @@ model.eval()
 # DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10'),
 #                'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10')
 #                }
-DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10'),
-               'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10')
+DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/CIFAR10'),
+               'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/CIFAR10')
                }
 
 os.makedirs(DATASET_DIR['train'], exist_ok=True)
@@ -71,6 +72,16 @@ trainloader, testloader, trainset, testset, mean, std = get_dataset_loaders(DATA
 # Normalization layer
 trans = TransformLayer(mean=mean, std=std)
 
+def undo_transform(transformed_images, mean, std):
+    mean = mean.squeeze().cpu()  # Remove batch and device dimensions
+    std = std.squeeze().cpu()
+    # Reverse the transformation
+    if isinstance(transformed_images, np.ndarray):
+        transformed_images = torch.tensor(transformed_images)
+
+    # Reverse the transformation
+    images = transformed_images * std + mean
+    return images.numpy()
 
 def grad_cam(
     model: nn.Module,
@@ -113,39 +124,12 @@ def grad_cam(
     input = torch.from_numpy(input).to(device)
     labels = torch.from_numpy(labels).to(device)
 
-    def save_cam_results(cam_image, heatmap, save_path):
-        heatmap = heatmap.squeeze()
-
-        img1 = cv2.normalize(
-            cam_image,
-            dst=None,
-            alpha=0,
-            beta=255,
-            norm_type=cv2.NORM_MINMAX,
-            dtype=cv2.CV_8U,
-        )
-
-        img2 = cv2.normalize(
-            heatmap,
-            dst=None,
-            alpha=0,
-            beta=255,
-            norm_type=cv2.NORM_MINMAX,
-            dtype=cv2.CV_8U,
-        )
-
-        img2 = cv2.applyColorMap(img2, cv2.COLORMAP_JET)
-        img1 = cv2.merge([img1] * 3)
-
-        vis = cv2.hconcat([img1, img2])
-        cv2.imwrite(save_path, vis)
-        return
 
     def save_cam_results_cifar(cam_image, heatmap, save_path):
         # cam_image.shape is [32, 32, 3]
         # heatmap.shape is [1, 32, 32]
+        cam_image = undo_transform(cam_image, mean=mean, std=std)
         cam_image = np.uint8(cam_image * 255)
-
         heatmap = (heatmap - np.min(heatmap)) / (
             np.max(heatmap) - np.min(heatmap)
         )

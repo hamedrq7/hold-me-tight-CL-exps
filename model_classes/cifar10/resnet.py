@@ -102,6 +102,7 @@ class ResNet18(ResNet):
     def __init__(self, zero_bias=False, num_channels=3, num_classes=10):
         super(ResNet18, self).__init__(BasicBlock, [2, 2, 2, 2], num_channels=num_channels, num_classes=num_classes, zero_bias=zero_bias)
         self.fd = 512
+        self.grad_layer = [self.layer2, self.layer3]
 
 class ResNet34(ResNet):
 

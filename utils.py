@@ -381,7 +381,15 @@ def generate_subspace_list(subspace_dim, dim, subspace_step, channels):
     return subspace_list
 
 
-def get_dataset_loaders(dataset, dataset_dir, batch_size=128):
+def get_dataset_loaders(dataset, dataset_dir, batch_size=128, seed=111):
+    import random
+    def seed_worker(worker_id):
+        # worker_seed = torch.initial_seed() % 2 ** 32
+        np.random.seed(seed)
+        random.seed(seed)
+
+    g = torch.Generator()
+    g.manual_seed(seed)
 
     pin_memory = True if DEVICE == 'cuda' else False
 
@@ -390,9 +398,9 @@ def get_dataset_loaders(dataset, dataset_dir, batch_size=128):
         testset = torchvision.datasets.MNIST(root=dataset_dir['val'], download=True, train=False, transform=torchvision.transforms.ToTensor())
 
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True,
-                                                  num_workers=2, pin_memory=pin_memory)
+                                                  num_workers=2, pin_memory=pin_memory, generator=g, worker_init_fn=seed_worker)
         testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False,
-                                                 num_workers=2, pin_memory=pin_memory)
+                                                 num_workers=2, pin_memory=pin_memory, generator=g, worker_init_fn=seed_worker)
 
         mean = torch.tensor([0.1307], device=DEVICE)[None, :, None, None]
         std = torch.tensor([0.3081], device=DEVICE)[None, :, None, None]
@@ -402,9 +410,9 @@ def get_dataset_loaders(dataset, dataset_dir, batch_size=128):
         testset = torchvision.datasets.CIFAR10(root=dataset_dir['val'], download=True, train=False, transform=torchvision.transforms.ToTensor())
 
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True,
-                                                  num_workers=2, pin_memory=pin_memory)
+                                                  num_workers=2, pin_memory=pin_memory, generator=g, worker_init_fn=seed_worker)
         testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False,
-                                                 num_workers=2, pin_memory=pin_memory)
+                                                 num_workers=2, pin_memory=pin_memory, generator=g, worker_init_fn=seed_worker)
 
         mean = torch.tensor([0.4914, 0.4822, 0.4465], device=DEVICE)[None, :, None, None]
         std = torch.tensor([0.247, 0.243, 0.261], device=DEVICE)[None, :, None, None]
