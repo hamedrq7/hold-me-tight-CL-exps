@@ -10,34 +10,26 @@ class MNIST_TRADES(nn.Module):
         self.num_labels = 10
         self.feat_dim = 200
 
-        activ = nn.ReLU(True)
+        self.conv1 = nn.Conv2d(self.num_channels, 32, 3)
+        self.relu1 = nn.ReLU(True)
+        self.conv2 = nn.Conv2d(32, 32, 3)
+        self.relu2 = nn.ReLU(True)
+        self.maxpool1 = nn.MaxPool2d(2, 2)
+        self.conv3 = nn.Conv2d(32, 64, 3)
+        self.relu3 = nn.ReLU(True)
+        self.conv4 = nn.Conv2d(64, 64, 3)
+        self.relu4 = nn.ReLU(True)
+        self.maxpool2 = nn.MaxPool2d(2, 2)
 
-        self.feature_extractor = nn.Sequential(OrderedDict([
-            ('conv1', nn.Conv2d(self.num_channels, 32, 3)),
-            ('relu1', activ),
-            ('conv2', nn.Conv2d(32, 32, 3)),
-            ('relu2', activ),
-            ('maxpool1', nn.MaxPool2d(2, 2)),
-            ('conv3', nn.Conv2d(32, 64, 3)),
-            ('relu3', activ),
-            ('conv4', nn.Conv2d(64, 64, 3)),
-            ('relu4', activ),
-            ('maxpool2', nn.MaxPool2d(2, 2)),
-        ]))
-
-        self.classifier = nn.Sequential(OrderedDict([
-            ('fc1', nn.Linear(64 * 4 * 4, 200)),
-            ('relu1', activ),
-            ('drop', nn.Dropout(drop)),
-            ('fc2', nn.Linear(200, 200)),
-            ('relu2', activ),
-            # ('fc3', nn.Linear(200, self.num_labels)),
-        ]))
-
+        self.fc1 = nn.Linear(64 * 4 * 4, 200)
+        self.relu5 = nn.ReLU(True)
+        self.drop = nn.Dropout(drop)
+        self.fc2 = nn.Linear(200, 200)
+        self.relu6 = nn.ReLU(True)
         self.fc3 = nn.Linear(200, self.num_labels, bias=False if zero_bias else True)
 
         for m in self.modules():
-            if isinstance(m, (nn.Conv2d)):
+            if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
@@ -47,27 +39,21 @@ class MNIST_TRADES(nn.Module):
 
         nn.init.xavier_normal_(self.fc3.weight)
 
-        self.grad_layer = []
-        self.fd = 200 
-
-    def normalize_weights(self, ): 
-        with torch.no_grad():
-            self.fc3.weight.data = 1. * torch.nn.functional.normalize(self.fc3.weight.data, dim=1)
-
-        # norms = torch.norm(self.fc3.weight.data, p=2, dim=1)
-        # self.fc3.weight.data = 1. * (self.fc3.weight.data.T / norms).T
-
-    def get_softmax_weights(self,):
-        return self.fc3.weight.data 
-    
-    def get_penultimate_layer(self, ):
-        return self.fc3
+        self.grad_layer = [self.maxpool1, self.maxpool2]
+        self.fd = 200
 
     def forward(self, x):
-        x = self.feature_extractor(x)
-        feats = self.classifier(x.view(-1, 64 * 4 * 4))
-        # self.normalize_weights()
-        # feats = torch.nn.functional.normalize(feats, dim=1)
-        # logits = 15.0 * self.fc3(feats)
+        x = self.relu1(self.conv1(x))
+        x = self.relu2(self.conv2(x))
+        x = self.maxpool1(x)
+        x = self.relu3(self.conv3(x))
+        x = self.relu4(self.conv4(x))
+        x = self.maxpool2(x)
+
+        x = x.view(-1, 64 * 4 * 4)
+        feats = self.relu5(self.fc1(x))
+        feats = self.drop(feats)
+        feats = self.relu6(self.fc2(feats))
         logits = self.fc3(feats)
+
         return feats, logits

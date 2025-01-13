@@ -38,7 +38,7 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'MNIST'
 PRETRAINED = False
-PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet-center_lr-0.5 alpha-0.1/model.t7'
+PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_True/CL/center_lr-0.5 alpha-0.01 epochs-25/model.t7'
 BATCH_SIZE = 128
 
 # Load a model
@@ -52,12 +52,12 @@ model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside t
 
 # Specify the path of the dataset. For MNIST and CIFAR-10 the train and validation paths can be the same.
 # For ImageNet, please specify to proper train and validation paths.
-# DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
-#                'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
-#                }
-DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST'),
-               'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST')
+DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
+               'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
                }
+# DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST'),
+#                'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST')
+#                }
 os.makedirs(DATASET_DIR['train'], exist_ok=True)
 os.makedirs(DATASET_DIR['val'], exist_ok=True)
 
@@ -78,24 +78,24 @@ if PRETRAINED:
 if not PRETRAINED:
 
     ### Original paper HyperParams
-    # TRADES_SETTING=False
-    # EPOCHS = 30
-    # MAX_LR = 0.21
-    # MOMENTUM = 0.9
-    # WEIGHT_DECAY = 5e-4
-    # opt = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
-    # lr_schedule = lambda t: np.interp([t], [0, EPOCHS * 2 // 5, EPOCHS], [0, MAX_LR, 0])[0]  # Triangular (cyclic) learning rate schedule
+    TRADES_SETTING=False
+    EPOCHS = 30
+    MAX_LR = 0.21
+    MOMENTUM = 0.9
+    WEIGHT_DECAY = 5e-4
+    opt = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+    lr_schedule = lambda t: np.interp([t], [0, EPOCHS * 2 // 5, EPOCHS], [0, MAX_LR, 0])[0]  # Triangular (cyclic) learning rate schedule
 
     ### TRADES setting
-    TRADES_SETTING=True
-    EPOCHS = 100
-    MAX_LR = 0.01
-    WEIGHT_DECAY = 0.0
-    MOMENTUM = 0.9
-    gamma = 0.1
-    milestones = [55, 75, 90]
-    lr_schedule = lambda t: MAX_LR * (gamma ** sum([int(t) >= milestone for milestone in milestones]))
-    opt = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+    # TRADES_SETTING=True
+    # EPOCHS = 25
+    # MAX_LR = 0.01
+    # WEIGHT_DECAY = 0.0
+    # MOMENTUM = 0.9
+    # gamma = 0.1
+    # milestones = [55, 75, 90]
+    # lr_schedule = lambda t: MAX_LR * (gamma ** sum([int(t) >= milestone for milestone in milestones]))
+    # opt = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
 
     loss_fun = nn.CrossEntropyLoss()
 

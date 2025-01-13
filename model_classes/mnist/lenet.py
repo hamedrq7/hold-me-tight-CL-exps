@@ -12,6 +12,7 @@ class LeNet(nn.Module):
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, num_classes, bias=False if zero_bias else True)
         self.fd = 84
+        self.grad_layer = [self.conv2]
 
     def forward(self, x):
         out = F.relu(self.conv1(x))
