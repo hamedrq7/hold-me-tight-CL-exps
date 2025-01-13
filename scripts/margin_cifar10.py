@@ -50,12 +50,12 @@ model = ResNet18(zero_bias=(METHOD=='CL'))  # check inside the model_class.cifar
 
 # Specify the path of the dataset. For MNIST and CIFAR-10 the train and validation paths can be the same.
 # For ImageNet, please specify to proper train and validation paths.
-DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10'),
-               'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10')
-               }
 # DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10'),
 #                'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/CIFAR10')
 #                }
+DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/CIFAR10'),
+               'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/CIFAR10')
+               }
 
 os.makedirs(DATASET_DIR['train'], exist_ok=True)
 os.makedirs(DATASET_DIR['val'], exist_ok=True)
