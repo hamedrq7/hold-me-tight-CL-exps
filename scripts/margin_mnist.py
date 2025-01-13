@@ -4,7 +4,6 @@ import torch.nn as nn
 import os
 import time
 
-import os
 import sys
 # relative import hacks (sorry)
 import inspect
@@ -102,10 +101,9 @@ if not PRETRAINED:
 
     if METHOD == 'CE': 
         SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{DATASET}/{model.__class__.__name__}-tradesSetting_{TRADES_SETTING}/{METHOD}/'
-        os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
     elif METHOD == 'CL': 
         SAVE_TRAIN_DIR = TREE_ROOT + f'Models/Generated/{DATASET}/{model.__class__.__name__}-tradesSetting_{TRADES_SETTING}/{METHOD}/center_lr-{center_lr} alpha-{alpha} epochs-{EPOCHS}/'
-        os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
+    os.makedirs(SAVE_TRAIN_DIR, exist_ok=True)
     
     t0 = time.time()
     model = model.to(DEVICE)
