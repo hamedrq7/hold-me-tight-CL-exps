@@ -81,8 +81,8 @@ def swarmplot_list(margin_list, labels, alpha=0.3, jitter=0.1, colors=None, s=SA
     plt.show()
 
 if __name__ == "__main__": 
-    margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/margins.npy')
-    margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/margins.npy')
+    margins1 = np.load('/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CE/margins.npy')
+    margins2 = np.load('/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CL/center_lr-0.5 alpha-0.1 epochs-30/margins.npy')
     
     # margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_True/CE/margins.npy')
     # margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_True/CL/center_lr-0.5 alpha-0.01 epochs-100/margins.npy')

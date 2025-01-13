@@ -14,6 +14,17 @@ class TransformLayer(torch.nn.Module):
         return x.sub(self.mean).div(self.std)
 
 
+class EmptyLayer(torch.nn.Module):
+
+    def __init__(self, mean, std):
+        super().__init__()
+        self.mean = torch.zeros_like(mean, requires_grad=False)
+        self.std = torch.ones_like(std, requires_grad=False)
+ 
+    def forward(self, x):
+        return x.sub(self.mean).div(self.std)
+
+
 class TransformFlippedLayer(nn.Module):
 
     def __init__(self, mean, std, shape, device):
@@ -24,3 +35,4 @@ class TransformFlippedLayer(nn.Module):
 
     def forward(self, x):
         return x.sub(self.mean).div(self.std)
+

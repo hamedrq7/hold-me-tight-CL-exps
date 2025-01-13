@@ -26,6 +26,89 @@ def make_dir(path_to_save):
         os.makedirs(path_to_save)
 
 
+from torch.autograd import Variable
+
+def deepfool(image, net, num_classes=10, overshoot=0.02, max_iter=50):
+
+    """
+       :param image: Image of size HxWx3
+       :param net: network (input: images, output: values of activation **BEFORE** softmax).
+       :param num_classes: num_classes (limits the number of classes to test against, by default = 10)
+       :param overshoot: used as a termination criterion to prevent vanishing updates (default = 0.02).
+       :param max_iter: maximum number of iterations for deepfool (default = 50)
+       :return: minimal perturbation that fools the classifier, number of iterations that it required, new estimated_label and perturbed image
+    """
+    is_cuda = torch.cuda.is_available()
+
+    if is_cuda:
+        # print("Using GPU")
+        image = image.cuda()
+        net = net.cuda()
+    else:
+        print("Using CPU")
+
+    _, f_image = net(Variable(image[None, :, :, :], requires_grad=True))
+    f_image = f_image.data.cpu().numpy().flatten()
+    I = (np.array(f_image)).flatten().argsort()[::-1]
+
+    I = I[0:num_classes]
+    label = I[0]
+
+    input_shape = image.cpu().numpy().shape
+    pert_image = copy.deepcopy(image)
+    w = np.zeros(input_shape)
+    r_tot = np.zeros(input_shape)
+
+    loop_i = 0
+
+    x = Variable(pert_image[None, :], requires_grad=True)
+    _, fs = net(x)
+    fs_list = [fs[0,I[k]] for k in range(num_classes)]
+    k_i = label
+
+    while k_i == label and loop_i < max_iter:
+
+        pert = np.inf
+        fs[0, I[0]].backward(retain_graph=True)
+        grad_orig = x.grad.data.cpu().numpy().copy()
+
+        for k in range(1, num_classes):
+            zero_gradients(x)
+
+            fs[0, I[k]].backward(retain_graph=True)
+            cur_grad = x.grad.data.cpu().numpy().copy()
+
+            # set new w_k and new f_k
+            w_k = cur_grad - grad_orig
+            f_k = (fs[0, I[k]] - fs[0, I[0]]).data.cpu().numpy()
+
+            pert_k = abs(f_k)/np.linalg.norm(w_k.flatten())
+
+            # determine which w_k to use
+            if pert_k < pert:
+                pert = pert_k
+                w = w_k
+
+        # compute r_i and r_tot
+        # Added 1e-4 for numerical stability
+        r_i =  (pert+1e-4) * w / np.linalg.norm(w)
+        r_tot = np.float32(r_tot + r_i)
+
+        if is_cuda:
+            pert_image = image + (1+overshoot)*torch.from_numpy(r_tot).cuda()
+        else:
+            pert_image = image + (1+overshoot)*torch.from_numpy(r_tot)
+
+        x = Variable(pert_image, requires_grad=True)
+        _, fs = net(x)
+        k_i = np.argmax(fs.data.cpu().numpy().flatten())
+
+        loop_i += 1
+
+    r_tot = (1+overshoot)*r_tot
+
+    return r_tot, loop_i, label, k_i, pert_image
+
 class CenterLoss(nn.Module):
     """
     https://github.com/jxgu1016/MNIST_center_loss_pytorch
@@ -380,6 +463,36 @@ def generate_subspace_list(subspace_dim, dim, subspace_step, channels):
 
     return subspace_list
 
+def get_mnist_eval(testset, num_samples=100, batch_size=128, seed=111): 
+        import random
+        def seed_worker(worker_id):
+            # worker_seed = torch.initial_seed() % 2 ** 32
+            np.random.seed(seed)
+            random.seed(seed)
+
+        g = torch.Generator()
+        g.manual_seed(seed)
+
+        indices = np.random.choice(len(testset), num_samples, replace=False)
+
+        eval_dataset = torch.utils.data.Subset(testset, indices[:num_samples])
+        eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size,
+                                                  generator=g,
+                                                  worker_init_fn = seed_worker,
+                                                shuffle=False, num_workers=2, pin_memory=True if DEVICE == 'cuda' else False)
+        
+        return eval_dataset, eval_loader, num_samples
+
+import matplotlib.pyplot as plt 
+
+def plot_norms(norms, what_norm, title, path_to_save): 
+    # Plot L2 norm histogram
+    plt.figure(figsize=(8, 6))
+    plt.hist(norms, bins=20, edgecolor='k')
+    plt.title(f"{title}") # Histogram of $L_2$ Norms of Minimal Perturbations
+    plt.xlabel(f"{what_norm}")
+    plt.ylabel("Frequency")
+    plt.savefig(f"{path_to_save}/{what_norm}_norm_histogram.png")
 
 def get_dataset_loaders(dataset, dataset_dir, batch_size=128, seed=111):
     import random

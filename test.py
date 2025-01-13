@@ -1,6 +1,20 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
 
+from model_classes import TransformLayer, EmptyLayer
+import torch 
+
+test = torch.randn(1, 1, 28, 28)
+mean = torch.tensor([0.1307], ) [None, :, None, None]
+std = torch.tensor([0.3081], )[None, :, None, None]
+
+# trans = TransformLayer(mean, std)
+trans = EmptyLayer()
+print(trans(test).shape)
+print(trans(test).shape)
+
+exit()
+
 # EPOCHS = 30
 # MAX_LR = 0.21
 # lr_schedule = lambda t: np.interp([t], [0, EPOCHS * 2 // 5, EPOCHS], [0, MAX_LR, 0])[0]  # Triangular (cyclic) learning rate schedule

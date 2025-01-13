@@ -16,7 +16,7 @@ from utils import get_dataset_loaders
 from utils import train, train_cl
 from utils import generate_subspace_list
 from utils import compute_margin_distribution
-from model_classes import TransformLayer
+from model_classes import TransformLayer, EmptyLayer
 from model_classes.mnist import LeNet, ResNet18, MNIST_TRADES  # check inside the model_class.mnist package for other network options
 import random 
 
@@ -30,20 +30,20 @@ np.random.seed(seed)
 random.seed(seed)
 
 TREE_ROOT = ''
-METHOD = 'CE' # 'CL'
+METHOD = 'CL' # 'CL'
 center_lr = 0.5
-alpha = 0.01
+alpha = 0.1
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'MNIST'
-PRETRAINED = False
-PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_True/CL/center_lr-0.5 alpha-0.01 epochs-25/model.t7'
+PRETRAINED = True
+PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CL/center_lr-0.5 alpha-0.1 epochs-30/model.t7'
 BATCH_SIZE = 128
 
 # Load a model
-# model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist package for other network options
-model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside the model_class.mnist package for other network options
+model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist package for other network options
+# model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside the model_class.mnist package for other network options
 # model = ResNet18()
 
 #############################
@@ -52,12 +52,12 @@ model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside t
 
 # Specify the path of the dataset. For MNIST and CIFAR-10 the train and validation paths can be the same.
 # For ImageNet, please specify to proper train and validation paths.
-# DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
-#                'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
-#                }
-DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST'),
-               'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST')
+DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
+               'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
                }
+# DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST'),
+#                'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST')
+#                }
 os.makedirs(DATASET_DIR['train'], exist_ok=True)
 os.makedirs(DATASET_DIR['val'], exist_ok=True)
 
@@ -65,7 +65,9 @@ os.makedirs(DATASET_DIR['val'], exist_ok=True)
 trainloader, testloader, trainset, testset, mean, std = get_dataset_loaders(DATASET, DATASET_DIR, BATCH_SIZE)
 
 # Normalization layer
-trans = TransformLayer(mean=mean, std=std)
+# trans = TransformLayer(mean=mean, std=std)
+trans = EmptyLayer(mean=mean, std=std)
+
 
 # If pretrained
 if PRETRAINED:
@@ -119,9 +121,59 @@ if not PRETRAINED:
     print('---> Training is done! Elapsed time: %.5f minutes\n' % ((time.time() - t0) / 60.))
 
 
+RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
+os.makedirs(RESULTS_DIR, exist_ok=True)
+
+
+#####################################
+# Compute Robustness using DeepFool #
+#####################################
+from utils import deepfool, get_mnist_eval
+
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_mnist_eval(testset=testset, num_samples=1000, batch_size=1)
+
+l2_norms = []
+linf_norms = []
+
+for img, lbl in eval_loader:
+    img = trans(img.to(DEVICE))[0, :, :, :] # 
+    lbl = lbl.to(DEVICE)
+    minimal_perturbation, number_iterations, true_label, new_label, perturbed_image = deepfool(
+        image=img, 
+        net=model,
+        num_classes=10,
+        overshoot=0.02,
+        max_iter=200
+    )
+    minimal_perturbation = minimal_perturbation.squeeze()
+    
+    # print('max', img.max())
+    # print('min', img.min())
+    # # print(minimal_perturbation)
+    # print('l2 minimal_perturbation', np.linalg.norm(minimal_perturbation))
+    # print('linf minimal_perturbation', np.max(np.abs(minimal_perturbation)))
+    # print('number_iterations', number_iterations)
+    # print()
+
+    l2_norm = np.linalg.norm(minimal_perturbation)
+    linf_norm = np.max(np.abs(minimal_perturbation))
+
+    l2_norms.append(l2_norm)
+    linf_norms.append(linf_norm)
+
+from utils import plot_norms
+plot_norms(l2_norms, 'l-2', 
+           title=f'{METHOD} Histogram of $L_2$ Norms of Minimal Perturbations\nMean: {np.mean(l2_norms): .4f}', 
+           path_to_save=RESULTS_DIR)
+
+plot_norms(linf_norms, 'l-inf', 
+           title=f'{METHOD} Histogram of $L_\infty$ Norms of Minimal Perturbations\nMean: {np.mean(linf_norms): .4f}', 
+           path_to_save=RESULTS_DIR)
+
 ##################################
 # Compute margin along subspaces #
 ##################################
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_mnist_eval(testset=testset, num_samples=200, batch_size=128)
 
 # Create a list of subspaces to evaluate the margin on
 SUBSPACE_DIM = 8
@@ -130,19 +182,8 @@ SUBSPACE_STEP = 1
 
 subspace_list = generate_subspace_list(SUBSPACE_DIM, DIM, SUBSPACE_STEP, channels=1)
 
-# Select the data samples for evaluation
-NUM_SAMPLES_EVAL = 100
-indices = np.random.choice(len(testset), NUM_SAMPLES_EVAL, replace=False)
-
-eval_dataset = torch.utils.data.Subset(testset, indices[:NUM_SAMPLES_EVAL])
-eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=BATCH_SIZE,
-                                          shuffle=False, num_workers=2, pin_memory=True if DEVICE == 'cuda' else False)
-
-RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
 # Compute the margin using subspace DeepFool and save the results
-margins = compute_margin_distribution(model, trans, eval_loader, subspace_list, RESULTS_DIR + 'margins.npy')
+margins = compute_margin_distribution(model, trans, eval_loader, subspace_list, f'{RESULTS_DIR}/margins.npy')
 
 from graphics import swarmplot
 swarmplot(margins, name = f'{RESULTS_DIR}/{METHOD}-{model.__class__.__name__}',color='tab:blue')
