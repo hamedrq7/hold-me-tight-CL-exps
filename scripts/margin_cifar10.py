@@ -37,8 +37,9 @@ alpha = 0.01
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'CIFAR10'
-PRETRAINED = False
-PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet-center_lr-0.5 alpha-0.1/model.t7'
+PRETRAINED = True
+# PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet-center_lr-0.5 alpha-0.1/model.t7'
+PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/model.t7'
 BATCH_SIZE = 128
 
 # Load a model
