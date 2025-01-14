@@ -128,9 +128,9 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 #####################################
 # Compute Robustness using DeepFool #
 #####################################
-from utils import deepfool, get_mnist_eval
+from utils import deepfool, get_eval
 
-eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_mnist_eval(testset=testset, num_samples=1000, batch_size=1)
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=1000, batch_size=1)
 
 l2_norms = []
 linf_norms = []
@@ -173,7 +173,7 @@ plot_norms(linf_norms, 'l-inf',
 ##################################
 # Compute margin along subspaces #
 ##################################
-eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_mnist_eval(testset=testset, num_samples=200, batch_size=128)
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=200, batch_size=128)
 
 # Create a list of subspaces to evaluate the margin on
 SUBSPACE_DIM = 8

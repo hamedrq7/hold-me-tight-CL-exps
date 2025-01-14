@@ -463,7 +463,7 @@ def generate_subspace_list(subspace_dim, dim, subspace_step, channels):
 
     return subspace_list
 
-def get_mnist_eval(testset, num_samples=100, batch_size=128, seed=111): 
+def get_eval(testset, num_samples=100, batch_size=128, seed=111): 
         import random
         def seed_worker(worker_id):
             # worker_seed = torch.initial_seed() % 2 ** 32

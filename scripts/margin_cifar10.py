@@ -105,10 +105,63 @@ if not PRETRAINED:
         
     print('---> Training is done! Elapsed time: %.5f minutes\n' % ((time.time() - t0) / 60.))
 
+RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
+os.makedirs(RESULTS_DIR, exist_ok=True)
+
+#####################################
+# Compute Robustness using DeepFool #
+#####################################
+from utils import deepfool, get_eval
+
+from utils import get_eval
+NUM_SAMPLES_EVAL = 100
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=NUM_SAMPLES_EVAL, batch_size=128)
+
+l2_norms = []
+linf_norms = []
+
+for img, lbl in eval_loader:
+    img = trans(img.to(DEVICE))[0, :, :, :] # 
+    lbl = lbl.to(DEVICE)
+    minimal_perturbation, number_iterations, true_label, new_label, perturbed_image = deepfool(
+        image=img, 
+        net=model,
+        num_classes=10,
+        overshoot=0.02,
+        max_iter=50
+    )
+    minimal_perturbation = minimal_perturbation.squeeze()
+    
+    # print('max', img.max())
+    # print('min', img.min())
+    # # print(minimal_perturbation)
+    # print('l2 minimal_perturbation', np.linalg.norm(minimal_perturbation))
+    # print('linf minimal_perturbation', np.max(np.abs(minimal_perturbation)))
+    # print('number_iterations', number_iterations)
+    # print()
+
+    l2_norm = np.linalg.norm(minimal_perturbation)
+    linf_norm = np.max(np.abs(minimal_perturbation))
+
+    l2_norms.append(l2_norm)
+    linf_norms.append(linf_norm)
+
+from utils import plot_norms
+plot_norms(l2_norms, 'l-2', 
+           title=f'{METHOD} Histogram of $L_2$ Norms of Minimal Perturbations\nMean: {np.mean(l2_norms): .4f}', 
+           path_to_save=RESULTS_DIR)
+
+plot_norms(linf_norms, 'l-inf', 
+           title=f'{METHOD} Histogram of $L_\infty$ Norms of Minimal Perturbations\nMean: {np.mean(linf_norms): .4f}', 
+           path_to_save=RESULTS_DIR)
 
 ##################################
 # Compute margin along subspaces #
 ##################################
+# Select the data samples for evaluation
+from utils import get_eval
+NUM_SAMPLES_EVAL = 100
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=NUM_SAMPLES_EVAL, batch_size=128)
 
 # Create a list of subspaces to evaluate the margin on
 SUBSPACE_DIM = 8
@@ -116,17 +169,6 @@ DIM = 32
 SUBSPACE_STEP = 2
 
 subspace_list = generate_subspace_list(SUBSPACE_DIM, DIM, SUBSPACE_STEP, channels=3)
-
-# Select the data samples for evaluation
-NUM_SAMPLES_EVAL = 100
-indices = np.random.choice(len(testset), NUM_SAMPLES_EVAL, replace=False)
-
-eval_dataset = torch.utils.data.Subset(testset, indices[:NUM_SAMPLES_EVAL])
-eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=BATCH_SIZE,
-                                          shuffle=False, num_workers=2, pin_memory=True if DEVICE == 'cuda' else False)
-
-RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
-os.makedirs(RESULTS_DIR, exist_ok=True)
 
 # Compute the margin using subspace DeepFool and save the results
 margins = compute_margin_distribution(model, trans, eval_loader, subspace_list, RESULTS_DIR + 'margins.npy')
