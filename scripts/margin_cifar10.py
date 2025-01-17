@@ -30,7 +30,7 @@ np.random.seed(seed)
 random.seed(seed)
 
 TREE_ROOT = ''
-METHOD = 'CE' # 'CL'
+METHOD = 'CL' # 'CL'
 center_lr = 0.5
 alpha = 0.01
 
@@ -38,8 +38,8 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'CIFAR10'
 PRETRAINED = True
-# PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/CL/MNIST/LeNet-center_lr-0.5 alpha-0.1/model.t7'
-PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/model.t7'
+PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/model.t7'
+# PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/model.t7'
 BATCH_SIZE = 128
 
 # Load a model
@@ -77,7 +77,6 @@ if PRETRAINED:
 
 # If not pretrained, then train it
 if not PRETRAINED:
-
     EPOCHS = 30
     MAX_LR = 0.21
     MOMENTUM = 0.9
@@ -109,19 +108,31 @@ if not PRETRAINED:
 RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
+from utils import eval_adv_test_whitebox, get_eval
+# EPS 8/255
+# STEP SIZE 1/255
+# num steps 20
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=1000, batch_size=128)
+iter_counts = eval_adv_test_whitebox(model, DEVICE, eval_loader, epsilon=0.3, step_size=0.005, num_steps=80)
+from utils import plot_norms
+plot_norms(iter_counts, 'pgd k', 
+           title=f'{METHOD} Histogram of min num_iter \nMean: {np.mean(iter_counts): .4f}', 
+           path_to_save=RESULTS_DIR)
+exit()
+
 #####################################
 # Compute Robustness using DeepFool #
 #####################################
 from utils import deepfool, get_eval
 
 from utils import get_eval
-NUM_SAMPLES_EVAL = 100
-eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=NUM_SAMPLES_EVAL, batch_size=128)
+NUM_SAMPLES_EVAL = 1000
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=NUM_SAMPLES_EVAL, batch_size=1)
 
 l2_norms = []
 linf_norms = []
-
-for img, lbl in eval_loader:
+from tqdm import tqdm 
+for img, lbl in tqdm(eval_loader):
     img = trans(img.to(DEVICE))[0, :, :, :] # 
     lbl = lbl.to(DEVICE)
     minimal_perturbation, number_iterations, true_label, new_label, perturbed_image = deepfool(
@@ -155,6 +166,11 @@ plot_norms(l2_norms, 'l-2',
 plot_norms(linf_norms, 'l-inf', 
            title=f'{METHOD} Histogram of $L_\infty$ Norms of Minimal Perturbations\nMean: {np.mean(linf_norms): .4f}', 
            path_to_save=RESULTS_DIR)
+
+np.save(RESULTS_DIR+'l2_norms', l2_norms)
+np.save(RESULTS_DIR+'linf_norms', linf_norms)
+
+exit()
 
 ##################################
 # Compute margin along subspaces #

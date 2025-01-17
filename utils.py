@@ -488,7 +488,7 @@ import matplotlib.pyplot as plt
 def plot_norms(norms, what_norm, title, path_to_save): 
     # Plot L2 norm histogram
     plt.figure(figsize=(8, 6))
-    plt.hist(norms, bins=20, edgecolor='k')
+    plt.hist(norms, bins=100, edgecolor='k')
     plt.title(f"{title}") # Histogram of $L_2$ Norms of Minimal Perturbations
     plt.xlabel(f"{what_norm}")
     plt.ylabel("Frequency")
@@ -609,3 +609,87 @@ def get_processed_dataset_loaders(proc_fun, dataset, dataset_dir, batch_size=128
 
     return trainloader, testloader, trainset, testset, mean, std, proc_mean, proc_std
 
+from torch.autograd import Variable
+import torch.optim as optim
+
+def _pgd_whitebox(model,
+                  X,
+                  y,
+                  epsilon = 0.3,
+                  step_size = 0.01,
+                  num_steps = 40):
+    
+    _, out = model(X)
+    err = (out.data.max(1)[1] != y.data).float().sum()
+    X_pgd = Variable(X.data, requires_grad=True)
+    
+    random_noise = torch.FloatTensor(*X_pgd.shape).uniform_(-epsilon, epsilon).to(DEVICE)
+    X_pgd = Variable(X_pgd.data + random_noise, requires_grad=True)
+
+    iter_counts = np.zeros(X.shape[0]) # [bs, ] = 0
+
+    for _ in range(num_steps):
+        opt = optim.SGD([X_pgd], lr=1e-3)
+        opt.zero_grad()
+
+        with torch.enable_grad():
+            _, tmp_out = model(X_pgd)
+            loss = nn.CrossEntropyLoss()(tmp_out, y)
+        loss.backward()
+        eta = step_size * X_pgd.grad.data.sign()
+        X_pgd = Variable(X_pgd.data + eta, requires_grad=True)
+        eta = torch.clamp(X_pgd.data - X.data, -epsilon, epsilon)
+        X_pgd = Variable(X.data + eta, requires_grad=True)
+        X_pgd = Variable(torch.clamp(X_pgd, 0, 1.0), requires_grad=True)
+
+        # keep the step number that data gets missclassified
+        _, out = model(X_pgd)
+        preds = out.data.max(1)[1] # [bs]
+        correctly_classified = preds == y.data # [bs], boolean, true = correctly classified
+        iter_counts += correctly_classified.cpu().numpy()
+
+    _, out = model(X_pgd)
+    err_pgd = (out.data.max(1)[1] != y.data).float().sum()
+    # print('err pgd (white-box): ', err_pgd)
+    return err, err_pgd, iter_counts
+
+
+def eval_adv_test_whitebox(model, device, test_loader, epsilon = 0.3,
+                  step_size = 0.01,
+                  num_steps = 40):
+    model.eval()
+    natural_err_total = 0
+    robust_err_total = 0
+    iter_counts = []
+    
+    for idx, (data, target) in enumerate(test_loader):
+        #print("{}/{}".format(idx, len(test_loader)))
+        data, target = data.to(device), target.to(device)
+        # pgd attack
+        X, y = Variable(data, requires_grad=True), Variable(target)
+        err_natural, err_robust, iter_count = _pgd_whitebox(model, X, y, epsilon = epsilon,
+                  step_size = step_size,
+                  num_steps = num_steps)
+        natural_err_total += err_natural
+        robust_err_total += err_robust
+        iter_counts.append(iter_count)
+
+    print('natural_err_total: ', natural_err_total)
+    print('robust_err_total: ', robust_err_total)
+    # print('iter_counts: ', iter_counts)
+
+    iter_counts=np.concatenate(iter_counts)
+    
+    return iter_counts
+
+'''
+from utils import eval_adv_test_whitebox
+from utils import plot_norms, get_eval
+
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=10000, batch_size=128)
+iter_counts = eval_adv_test_whitebox(model, DEVICE, eval_loader)
+plot_norms(iter_counts, 'pgd k', 
+           title=f'{METHOD} Histogram of min num_iter \nMean: {np.mean(iter_counts): .4f}', 
+           path_to_save=RESULTS_DIR)
+exit()
+'''
