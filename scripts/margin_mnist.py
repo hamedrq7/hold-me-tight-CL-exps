@@ -40,12 +40,15 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 DATASET = 'MNIST'
 PRETRAINED = True
-PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CL/center_lr-0.5 alpha-0.1 epochs-30/model.t7'
+# PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CL/center_lr-0.5 alpha-0.1 epochs-30/model.t7'
+# PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_False/CE/model.t7'
+PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_True/CL/center_lr-0.5 alpha-0.1/model.t7'
+
 BATCH_SIZE = 128
 
 # Load a model
-model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist package for other network options
-# model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside the model_class.mnist package for other network options
+# model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist package for other network options
+model = MNIST_TRADES(zero_bias=(METHOD=='CL')) # ResNet18() #   # check inside the model_class.mnist package for other network options
 # model = ResNet18()
 
 #############################
@@ -54,12 +57,12 @@ model = LeNet(zero_bias=(METHOD=='CL')) # check inside the model_class.mnist pac
 
 # Specify the path of the dataset. For MNIST and CIFAR-10 the train and validation paths can be the same.
 # For ImageNet, please specify to proper train and validation paths.
-DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
-               'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
-               }
-# DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST'),
-#                'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST')
+# DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST'),
+#                'val': os.path.join(TREE_ROOT, '/home/hamed/Storage/LDA-FUM HDD/data/MNIST')
 #                }
+DATASET_DIR = {'train': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST'),
+               'val': os.path.join(TREE_ROOT, '/home/ramin/Robustness/LDA-FUM-TEMP/data/MNIST')
+               }
 os.makedirs(DATASET_DIR['train'], exist_ok=True)
 os.makedirs(DATASET_DIR['val'], exist_ok=True)
 
@@ -70,7 +73,6 @@ trainloader, testloader, trainset, testset, mean, std = get_dataset_loaders(DATA
 # trans = TransformLayer(mean=mean, std=std)
 trans = EmptyLayer(mean=mean, std=std)
 
-
 # If pretrained
 if PRETRAINED:
     print('---> Working on a pretrained network')
@@ -80,7 +82,6 @@ if PRETRAINED:
 
 # If not pretrained, then train it
 if not PRETRAINED:
-
     ### Original paper HyperParams
     TRADES_SETTING=False
     EPOCHS = 30
@@ -122,11 +123,23 @@ if not PRETRAINED:
 
     print('---> Training is done! Elapsed time: %.5f minutes\n' % ((time.time() - t0) / 60.))
 
-
 RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
+# cifar default setting:
+# epsilon = 0.3
+# step_size  = 0.01 - 0.05
+# num_stepa = 40 - 80
+from utils import get_eval
+from utils import eval_adv_test_whitebox, plot_norms
+eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=1000, batch_size=128)
+iter_counts = eval_adv_test_whitebox(model, DEVICE, eval_loader, epsilon=0.3, step_size=0.005, num_steps=80)
+plot_norms(iter_counts, 'pgd k', 
+           title=f'{METHOD} Histogram of min num_iter \nMean: {np.mean(iter_counts): .4f}', 
+           path_to_save=RESULTS_DIR)
+exit()
 
+'''
 #####################################
 # Compute Robustness using DeepFool #
 #####################################
@@ -189,3 +202,4 @@ margins = compute_margin_distribution(model, trans, eval_loader, subspace_list, 
 
 from graphics import swarmplot
 swarmplot(margins, name = f'{RESULTS_DIR}/{METHOD}-{model.__class__.__name__}',color='tab:blue')
+'''

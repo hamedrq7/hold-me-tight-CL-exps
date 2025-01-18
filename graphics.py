@@ -80,17 +80,48 @@ def swarmplot_list(margin_list, labels, alpha=0.3, jitter=0.1, colors=None, s=SA
     plt.legend()
     plt.show()
 
+from typing import List 
+import seaborn as sns
+
+def histogram_coupled(arrays: List, labels: List): 
+    plt.figure(figsize=(10, 6))
+
+    for index in range(len(arrays)):
+        sns.kdeplot(
+            arrays[index],
+            label=f'{labels[index]} (Mean: {np.mean(arrays[index]):.2f})',
+            linewidth=2,
+            clip=(0, None)  # Restrict KDE to values >= 0
+        )
+
+    plt.xlabel('l-2')
+    plt.ylabel('Density')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
 if __name__ == "__main__": 
-   #  margins1 = np.load('/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CE/margins.npy')
-   #  margins2 = np.load('/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CL/center_lr-0.5 alpha-0.1 epochs-30/margins.npy')
+    # margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_True/CE/margins.npy')
+    # margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_True/CL/center_lr-0.5 alpha-0.1/margins.npy')
     
-    # margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_True/CE/margins.npy')
-    # margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_True/CL/center_lr-0.5 alpha-0.01 epochs-100/margins.npy')
+    margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_False/CE/margins.npy')
+    margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_False/CL/center_lr-0.5 alpha-0.1 epochs-30/margins.npy')
 
-    margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/margins.npy')
-    margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/margins.npy')
+    # margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/margins.npy')
+    # margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/margins.npy')
 
+    # margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/AT_CE/margins.npy')
+    # margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/AT_CLEAN_CENT/margins.npy')
 
+    # margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/margins.npy')
+    # margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/margins.npy')
+
+    
     name1 = 'CE'
     name2 = 'CL'
     swarmplot_list([margins1, margins2], labels=[name1, name2])
+
+    margins1 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/l2_norms.npy')
+    margins2 = np.load('/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/l2_norms.npy')
+
+    histogram_coupled([margins1, margins2], ['CE', 'CL'])
