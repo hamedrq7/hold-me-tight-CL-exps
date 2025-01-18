@@ -42,7 +42,7 @@ DATASET = 'MNIST'
 PRETRAINED = True
 # PRETRAINED_PATH = '/home/hamed/EBV/Margins/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_False/CL/center_lr-0.5 alpha-0.1 epochs-30/model.t7'
 # PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_False/CE/model.t7'
-PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/LeNet-tradesSetting_True/CL/center_lr-0.5 alpha-0.1/model.t7'
+PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/MNIST/MNIST_TRADES-tradesSetting_False/CE/model.t7'
 
 BATCH_SIZE = 128
 
@@ -126,20 +126,20 @@ if not PRETRAINED:
 RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# cifar default setting:
-# epsilon = 0.3
-# step_size  = 0.01 - 0.05
-# num_stepa = 40 - 80
-from utils import get_eval
-from utils import eval_adv_test_whitebox, plot_norms
-eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=1000, batch_size=128)
-iter_counts = eval_adv_test_whitebox(model, DEVICE, eval_loader, epsilon=0.3, step_size=0.005, num_steps=80)
-plot_norms(iter_counts, 'pgd k', 
-           title=f'{METHOD} Histogram of min num_iter \nMean: {np.mean(iter_counts): .4f}', 
-           path_to_save=RESULTS_DIR)
-exit()
+# # cifar default setting:
+# # epsilon = 0.3
+# # step_size  = 0.01 - 0.05
+# # num_stepa = 40 - 80
+# from utils import get_eval
+# from utils import eval_adv_test_whitebox, plot_norms
+# eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=1000, batch_size=128)
+# iter_counts = eval_adv_test_whitebox(model, DEVICE, eval_loader, epsilon=0.3, step_size=0.005, num_steps=80)
+# plot_norms(iter_counts, 'pgd k', 
+#            title=f'{METHOD} Histogram of min num_iter \nMean: {np.mean(iter_counts): .4f}', 
+#            path_to_save=RESULTS_DIR)
+# exit()
 
-'''
+
 #####################################
 # Compute Robustness using DeepFool #
 #####################################
@@ -152,6 +152,7 @@ linf_norms = []
 
 for img, lbl in eval_loader:
     img = trans(img.to(DEVICE))[0, :, :, :] # 
+    print(img.shape)
     lbl = lbl.to(DEVICE)
     minimal_perturbation, number_iterations, true_label, new_label, perturbed_image = deepfool(
         image=img, 
@@ -161,15 +162,6 @@ for img, lbl in eval_loader:
         max_iter=200
     )
     minimal_perturbation = minimal_perturbation.squeeze()
-    
-    # print('max', img.max())
-    # print('min', img.min())
-    # # print(minimal_perturbation)
-    # print('l2 minimal_perturbation', np.linalg.norm(minimal_perturbation))
-    # print('linf minimal_perturbation', np.max(np.abs(minimal_perturbation)))
-    # print('number_iterations', number_iterations)
-    # print()
-
     l2_norm = np.linalg.norm(minimal_perturbation)
     linf_norm = np.max(np.abs(minimal_perturbation))
 
@@ -184,6 +176,11 @@ plot_norms(l2_norms, 'l-2',
 plot_norms(linf_norms, 'l-inf', 
            title=f'{METHOD} Histogram of $L_\infty$ Norms of Minimal Perturbations\nMean: {np.mean(linf_norms): .4f}', 
            path_to_save=RESULTS_DIR)
+
+np.save(RESULTS_DIR+'l2_norms', l2_norms)
+np.save(RESULTS_DIR+'linf_norms', linf_norms)
+
+exit()
 
 ##################################
 # Compute margin along subspaces #
@@ -202,4 +199,3 @@ margins = compute_margin_distribution(model, trans, eval_loader, subspace_list, 
 
 from graphics import swarmplot
 swarmplot(margins, name = f'{RESULTS_DIR}/{METHOD}-{model.__class__.__name__}',color='tab:blue')
-'''
