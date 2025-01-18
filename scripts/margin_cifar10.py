@@ -16,7 +16,7 @@ from utils import get_dataset_loaders
 from utils import train, train_cl
 from utils import generate_subspace_list
 from utils import compute_margin_distribution
-from model_classes import TransformLayer
+from model_classes import TransformLayer, EmptyLayer
 from model_classes.cifar10 import ResNet18  # check inside the model_class.cifar10 package for other network options
 import random 
 
@@ -40,6 +40,9 @@ DATASET = 'CIFAR10'
 PRETRAINED = True
 PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CL/center_lr-0.5 alpha-0.01 epochs-30/model.t7'
 # PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/model.t7'
+#  PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/CE/model.t7'
+# PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/AT_CE/model_best_adv_acc.rar'
+# PRETRAINED_PATH = '/home/ramin/Margin_analysis/hold-me-tight-CL-exps/Models/Generated/CIFAR10/ResNet18/AT_CLEAN_CENT/model_best_adv_acc.rar'
 BATCH_SIZE = 128
 
 # Load a model
@@ -66,6 +69,7 @@ trainloader, testloader, trainset, testset, mean, std = get_dataset_loaders(DATA
 
 # Normalization layer
 trans = TransformLayer(mean=mean, std=std)
+# trans = EmptyLayer(mean=mean, std=std)
 
 
 # If pretrained
@@ -74,6 +78,17 @@ if PRETRAINED:
     model.load_state_dict(torch.load(PRETRAINED_PATH, map_location='cpu'))
     model = model.to(DEVICE)
     model.eval()
+
+    # needs_conversion = False
+    # conversion_kwargs = {"map_location": lambda st, loc: st} if needs_conversion else {}    
+    # model.load_state_dict(
+    #             torch.load(PRETRAINED_PATH, **conversion_kwargs),
+    #             strict=False,
+    #         )
+    # model=model.to(DEVICE)
+    # model.eval()
+
+
 
 # If not pretrained, then train it
 if not PRETRAINED:
@@ -105,20 +120,21 @@ if not PRETRAINED:
         
     print('---> Training is done! Elapsed time: %.5f minutes\n' % ((time.time() - t0) / 60.))
 
-RESULTS_DIR = os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR
+RESULTS_DIR = (os.path.dirname(PRETRAINED_PATH) if PRETRAINED else SAVE_TRAIN_DIR)+'/'
+print(RESULTS_DIR)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-from utils import eval_adv_test_whitebox, get_eval
-# EPS 8/255
-# STEP SIZE 1/255
-# num steps 20
-eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=1000, batch_size=128)
-iter_counts = eval_adv_test_whitebox(model, DEVICE, eval_loader, epsilon=0.3, step_size=0.005, num_steps=80)
-from utils import plot_norms
-plot_norms(iter_counts, 'pgd k', 
-           title=f'{METHOD} Histogram of min num_iter \nMean: {np.mean(iter_counts): .4f}', 
-           path_to_save=RESULTS_DIR)
-exit()
+# from utils import eval_adv_test_whitebox, get_eval
+# # EPS 8/255
+# # STEP SIZE 1/255
+# # num steps 20
+# eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=1000, batch_size=128)
+# iter_counts = eval_adv_test_whitebox(model, DEVICE, eval_loader, epsilon=8/255, step_size= 1/255, num_steps=20)
+# from utils import plot_norms
+# plot_norms(iter_counts, 'pgd k', 
+#            title=f'{METHOD} Histogram of min num_iter \nMean: {np.mean(iter_counts): .4f}', 
+#            path_to_save=RESULTS_DIR)
+
 
 #####################################
 # Compute Robustness using DeepFool #
@@ -126,7 +142,7 @@ exit()
 from utils import deepfool, get_eval
 
 from utils import get_eval
-NUM_SAMPLES_EVAL = 1000
+NUM_SAMPLES_EVAL = 2000
 eval_dataset, eval_loader, NUM_SAMPLES_EVAL = get_eval(testset=testset, num_samples=NUM_SAMPLES_EVAL, batch_size=1)
 
 l2_norms = []
