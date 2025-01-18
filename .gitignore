@@ -28,6 +28,8 @@ share/python-wheels/
 MANIFEST
 Models/
 Results/ 
+temp/
+2d trained-CLEAN/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
